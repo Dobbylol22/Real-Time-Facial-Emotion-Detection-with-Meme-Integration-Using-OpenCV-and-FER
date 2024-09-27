@@ -1,4 +1,4 @@
-from flask import Flask, render_template, Response
+from flask import Flask, render_template, Response, jsonify
 from collections import deque
 import cv2
 from fer import FER
@@ -40,8 +40,11 @@ def gen_frames():
                     most_common_emotion = max(set(predictions), key= predictions.count)
                     #Display the emotion of the video frame
                     emotion_text = f"Emotion: {most_common_emotion}"
+                   #Get the corresponding meme path 
+                    current_meme = meme_dict.get(most_common_emotion, 'static/neutral.jpg')
                 else:
                     emotion_text = "Emotion: Unknown"
+
                 
                 cv2.putText(frame, emotion_text, (50,50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2, cv2.LINE_AA)
             #Encode the frame in JPEG format
@@ -54,6 +57,15 @@ def gen_frames():
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n'+frame+b'\r\n')
             
+meme_dict = {
+    'happy': 'static/happy-cat.gif',
+    'angry': 'static/angry-cat.gif',
+    'sad': 'static/sad-cat.gif',
+    'neutral': 'static/neutral.jpg',
+    'fear': 'static/surprise.gif',
+    'surprise': 'static/surprise.gif'
+}
+            
 @app.route('/')
 def index():
     """Render the main page with the video feed"""
@@ -64,5 +76,12 @@ def video_feed():
     """Video streaming route. Put this in the src attribute of an img tag"""
     return Response(gen_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
+@app.route('/current_meme')
+def current_meme_route():
+    """Return the current meme path based on the most common emotion"""
+    if predictions:
+        most_common_emotion = max(set(predictions), key=predictions.count)
+        meme_path = meme_dict.get(most_common_emotion, 'static/neutral.jpg')
+        return jsonify({'meme':'static/neutral.jpg'})
 if __name__ == '__main__':
     app.run(debug=True)

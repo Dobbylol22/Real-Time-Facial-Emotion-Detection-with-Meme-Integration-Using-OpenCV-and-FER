@@ -12,9 +12,23 @@
             color: #4CAF50;
         }
     </style>
+    <script>
+        function updateMeme() {
+            fetch('/current_meme')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('meme-img').src = data.meme;
+            });
+        }
+        //update the meme every second
+        setInterval(updateMeme, 1000);
+    </script>
 </head>
 <body>
     <h1>Live Emotion Detection</h1>
     <img src = "{{url_for('video_feed')}}" width="720" height="560" alt="Live video feed of emotion detection">
+    <div id="emotion-container">
+        <img id="meme-img" src="static/neutral.jpg" alt="Meme" style="width: 300px; height: auto;">
+    </div>
 </body>
 </html>
