@@ -2,6 +2,8 @@ from flask import Flask, render_template, Response, jsonify
 from collections import deque
 import cv2
 from fer import FER
+import os
+from PIL import Image
 
 app = Flask(__name__)
 
@@ -10,6 +12,16 @@ face_detector = FER()
 
 #Initialize a queue to hold the last fer predictions.
 predictions = deque(maxlen=5)
+
+meme_dict = {
+    'happy': 'static/memes/happy-cat.gif',
+    'angry': 'static/memes/angry.jpg',
+    'sad': 'static/memes/sad-cat.gif',
+    'neutral': 'static/memes/neutral.jpg',
+    'fear': 'static/memes/surprise-cat.gif',
+    'surprise': 'static/memes/surprise-cat.gif',
+    'disgust': 'static/memes/disgust-cat.gif'
+}
 
 def detect_emotion(frame):
     result = face_detector.detect_emotions(frame)
@@ -20,8 +32,32 @@ def detect_emotion(frame):
 
 #OpenCV function to capture live video feed from the webcam.
 camera = cv2.VideoCapture(0) # pylint: disable=E1101
+current_emotion = 'neutral'
+if not camera.isOpened():
+    print("Error: Could not open camera")
 
+def overlay_meme(frame, meme_path):
+    #Load the meme image using OpenCV
+    meme_img = cv2.imread(meme_path, cv2.IMREAD_UNCHANGED)
+
+    if meme_img is not None:
+        if meme_img.shape[2] == 4:
+            #Resize meme to fit the face or specific location
+            meme_img = cv2.resize(meme_img, (150,150))
+            #Get the position to overlay
+            x_offset, y_offset = 50,50
+            for c in range(0,3):
+                frame[y_offset: y_offset + meme_img.shape[0], x_offset:x_offset + meme_img.shape[1],c] = \
+                meme_img[:, :, c] * (meme_img[:, :, 3] / 255.0) + \
+                frame[y_offset:y_offset + meme_img.shape[0], x_offset:x_offset + meme_img.shape[1], c] * (1.0 - meme_img[:, :, 3] / 255.0)
+        else:
+            meme_img = cv2.resize(meme_img, (150,150))
+            x_offset, y_offset = 50,50
+            frame[y_offset:y_offset + meme_img.shape[0], x_offset:x_offset + meme_img.shape[1]] = meme_img   
+    return frame
+#Capture video feed
 def gen_frames():
+    global current_emotion
     while True:
         #Capture frame-by-frame
         success, frame = camera.read()
@@ -41,7 +77,8 @@ def gen_frames():
                     #Display the emotion of the video frame
                     emotion_text = f"Emotion: {most_common_emotion}"
                    #Get the corresponding meme path 
-                    current_meme = meme_dict.get(most_common_emotion, 'static/neutral.jpg')
+                    meme_path = meme_dict.get(most_common_emotion, 'static/memes/neutral.jpg')
+                    frame = overlay_meme(frame, meme_path)
                 else:
                     emotion_text = "Emotion: Unknown"
 
@@ -57,14 +94,6 @@ def gen_frames():
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n'+frame+b'\r\n')
             
-meme_dict = {
-    'happy': 'static/happy-cat.gif',
-    'angry': 'static/angry-cat.gif',
-    'sad': 'static/sad-cat.gif',
-    'neutral': 'static/neutral.jpg',
-    'fear': 'static/surprise.gif',
-    'surprise': 'static/surprise.gif'
-}
             
 @app.route('/')
 def index():
@@ -76,12 +105,12 @@ def video_feed():
     """Video streaming route. Put this in the src attribute of an img tag"""
     return Response(gen_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
-@app.route('/current_meme')
+@app.route('/current_meme',methods=['GET'])
 def current_meme_route():
     """Return the current meme path based on the most common emotion"""
-    if predictions:
-        most_common_emotion = max(set(predictions), key=predictions.count)
-        meme_path = meme_dict.get(most_common_emotion, 'static/neutral.jpg')
-        return jsonify({'meme':'static/neutral.jpg'})
+    global current_emotion
+    meme_path = meme_dict.get(current_emotion, 'static/memes/neutral.jpg')
+    return jsonify({'meme_path':meme_path})
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000) #Bind to 0.0.0.0 and specify the port if needed. 
