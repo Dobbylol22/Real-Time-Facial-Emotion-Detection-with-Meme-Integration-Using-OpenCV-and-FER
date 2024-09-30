@@ -3,7 +3,8 @@ from collections import deque
 import cv2
 from fer import FER
 import os
-from PIL import Image
+from PIL import Image, ImageSequence
+import numpy as np
 
 app = Flask(__name__)
 
@@ -37,23 +38,42 @@ if not camera.isOpened():
     print("Error: Could not open camera")
 
 def overlay_meme(frame, meme_path):
-    #Load the meme image using OpenCV
-    meme_img = cv2.imread(meme_path, cv2.IMREAD_UNCHANGED)
+    #check if the file is a GIF:
+    if meme_path.endswith('.gif'):
+        #load the gif using PIL
+        gif = Image.open(meme_path)
+        #extract the first frame of the gif
+        gif_frame = next(ImageSequence.Iterator(gif))
+        #convert the gif frame to numpy array
+        gif_frame_np = np.array(gif_frame.convert("RGBA"))
+        #convert the gif frame to fit the desired area
+        gif_frame_resized = cv2.resize(gif_frame_np, (150,150))
+        #convert the resized frame back to OpenCV format
+        gif_frame_resized = cv2.cvtColor(gif_frame_resized, cv2.COLOR_RGBA2BGRA)
+        #get the position to overlay the gif
+        x_offset, y_offset = 50,50
+        for c in range(0, 3):
+            frame[y_offset: y_offset + gif_frame_resized.shape[0], x_offset:x_offset + gif_frame_resized.shape[1], c] = \
+            gif_frame_resized[:, :, c] * (gif_frame_resized[:, :, 3] / 255.0) + \
+            frame[y_offset:y_offset + gif_frame_resized.shape[0], x_offset:x_offset + gif_frame_resized.shape[1], c] * (1.0 - gif_frame_resized[:, :, 3] / 255.0)
 
-    if meme_img is not None:
-        if meme_img.shape[2] == 4:
-            #Resize meme to fit the face or specific location
-            meme_img = cv2.resize(meme_img, (150,150))
-            #Get the position to overlay
-            x_offset, y_offset = 50,50
-            for c in range(0,3):
-                frame[y_offset: y_offset + meme_img.shape[0], x_offset:x_offset + meme_img.shape[1],c] = \
-                meme_img[:, :, c] * (meme_img[:, :, 3] / 255.0) + \
-                frame[y_offset:y_offset + meme_img.shape[0], x_offset:x_offset + meme_img.shape[1], c] * (1.0 - meme_img[:, :, 3] / 255.0)
-        else:
-            meme_img = cv2.resize(meme_img, (150,150))
-            x_offset, y_offset = 50,50
-            frame[y_offset:y_offset + meme_img.shape[0], x_offset:x_offset + meme_img.shape[1]] = meme_img   
+    else:
+        #Load the meme image using OpenCV
+        meme_img = cv2.imread(meme_path, cv2.IMREAD_UNCHANGED)
+        if meme_img is not None:
+            if meme_img.shape[2] == 4:
+                #Resize meme to fit the face or specific location
+                meme_img = cv2.resize(meme_img, (150,150))
+                #Get the position to overlay
+                x_offset, y_offset = 50,50
+                for c in range(0,3):
+                    frame[y_offset: y_offset + meme_img.shape[0], x_offset:x_offset + meme_img.shape[1],c] = \
+                    meme_img[:, :, c] * (meme_img[:, :, 3] / 255.0) + \
+                    frame[y_offset:y_offset + meme_img.shape[0], x_offset:x_offset + meme_img.shape[1], c] * (1.0 - meme_img[:, :, 3] / 255.0)
+            else:
+                meme_img = cv2.resize(meme_img, (150,150))
+                x_offset, y_offset = 50,50
+                frame[y_offset:y_offset + meme_img.shape[0], x_offset:x_offset + meme_img.shape[1]] = meme_img   
     return frame
 #Capture video feed
 def gen_frames():
