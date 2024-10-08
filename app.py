@@ -15,7 +15,7 @@ face_detector = FER()
 predictions = deque(maxlen=5)
 
 meme_dict = {
-    'happy': 'static/memes/happy-cat.gif',
+    'happy': 'static/memes/happy-cat.jpg',
     'angry': 'static/memes/angry.jpg',
     'sad': 'static/memes/sad-cat.gif',
     'neutral': 'static/memes/neutral.jpg',
