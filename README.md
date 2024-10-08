@@ -25,7 +25,7 @@ Prerequisites:
 
 Installation:
 1. Clone the repository:
-      git clone https://github.com/yourusername/real-time-emotion-detection-memes.git
+      git clone https://github.com/Dobbylol22/Real-Time-Facial-Emotion-Detection-with-Meme-Integration-Using-OpenCV-and-FER.git
       cd real-time-emotion-detection-memes
 2. Create a virtual environment:
       python -m venv meme_env
