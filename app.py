@@ -37,17 +37,31 @@ current_emotion = 'neutral'
 if not camera.isOpened():
     print("Error: Could not open camera")
 
-def overlay_meme(frame, meme_path):
+gif_frames_dict = {}
+
+def load_gif_frames(meme_path):
+    """Load all frames from a gif into a list"""
+    gif = Image.open(meme_path)
+    return [np.array(frame.convert("RGBA")) for frame in ImageSequence.Iterator(gif)]
+
+for emotion, path in meme_dict.items():
+    if path.endswith('.gif'):
+        gif_frames_dict[emotion] = load_gif_frames(path)
+
+def overlay_meme(frame, meme_path,frame_counter):
     #check if the file is a GIF:
-    if meme_path.endswith('.gif'):
+    gif_frames = gif_frames_dict.get(meme_path)
+    if gif_frames:
+    #if meme_path.endswith('.gif'):
         #load the gif using PIL
-        gif = Image.open(meme_path)
+        #gif = Image.open(meme_path)
         #extract the first frame of the gif
-        gif_frame = next(ImageSequence.Iterator(gif))
+        #gif_frame = next(ImageSequence.Iterator(gif))
+        gif_frame = gif_frames[frame_counter % len(gif_frames)]
         #convert the gif frame to numpy array
-        gif_frame_np = np.array(gif_frame.convert("RGBA"))
+        #gif_frame_np = np.array(gif_frame.convert("RGBA"))
         #convert the gif frame to fit the desired area
-        gif_frame_resized = cv2.resize(gif_frame_np, (150,150))
+        gif_frame_resized = cv2.resize(gif_frame, (150,150))
         #convert the resized frame back to OpenCV format
         gif_frame_resized = cv2.cvtColor(gif_frame_resized, cv2.COLOR_RGBA2BGRA)
         #get the position to overlay the gif
@@ -78,6 +92,7 @@ def overlay_meme(frame, meme_path):
 #Capture video feed
 def gen_frames():
     global current_emotion
+    frame_counter = 0
     while True:
         #Capture frame-by-frame
         success, frame = camera.read()
@@ -98,12 +113,13 @@ def gen_frames():
                     emotion_text = f"Emotion: {most_common_emotion}"
                    #Get the corresponding meme path 
                     meme_path = meme_dict.get(most_common_emotion, 'static/memes/neutral.jpg')
-                    frame = overlay_meme(frame, meme_path)
+                    frame = overlay_meme(frame, meme_path, frame_counter)
                 else:
                     emotion_text = "Emotion: Unknown"
 
                 
                 cv2.putText(frame, emotion_text, (50,50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2, cv2.LINE_AA)
+            frame_counter += 1
             #Encode the frame in JPEG format
             ret, buffer = cv2.imencode('.jpg',frame)
             if not ret:
